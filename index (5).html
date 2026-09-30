@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ContentCraft AI</title>
+
+  <!--
+    HOW THIS FILE IS ORGANISED
+    1. <style>   = how the page looks (colours, spacing, fonts)
+    2. <body>    = what is on the page (form, results, prompt library)
+    3. <script>  = what the page does (buttons, prompt building)
+    Everything is in one file so it is easy to open and learn from.
+  -->
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ---------- Colours and fonts (change these to restyle the app) ---------- */
+    :root {
+      --page: #eef2f5;
+      --panel: #ffffff;
+      --ink: #14213d;
+      --muted: #5a6478;
+      --line: #d5dce4;
+      --accent: #0b7a75;
+      --accent-dark: #075c58;
+      --highlight: #f2b632;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: "DM Sans", system-ui, sans-serif;
+      line-height: 1.55;
+    }
+
+    /* ---------- Layout ---------- */
+    header {
+      background: var(--ink);
+      color: #fff;
+      padding: 28px 20px;
+    }
+    header h1 {
+      margin: 0;
+      font-family: "Sora", system-ui, sans-serif;
+      font-size: 1.7rem;
+    }
+    header p { margin: 4px 0 0; color: #b9c3d6; }
+
+    .wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+      padding: 24px 20px 48px;
+    }
+
+    /* On small screens, stack everything in one column */
+    @media (max-width: 800px) {
+      main { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .panel h2 {
+      margin: 0 0 14px;
+      font-family: "Sora", system-ui, sans-serif;
+      font-size: 1.1rem;
+    }
+
+    /* ---------- Form controls ---------- */
+    label {
+      display: block;
+      font-weight: 500;
+      margin: 14px 0 6px;
+    }
+    textarea, select, input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+    }
+    textarea { resize: vertical; min-height: 90px; }
+
+    .row { display: flex; gap: 14px; }
+    .row > div { flex: 1; }
+    @media (max-width: 500px) { .row { flex-direction: column; gap: 0; } }
+
+    /* ---------- Buttons ---------- */
+    button {
+      font: inherit;
+      font-weight: 500;
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    button:hover { background: var(--accent-dark); }
+    button.secondary {
+      background: #fff;
+      color: var(--accent-dark);
+    }
+    button.secondary:hover { background: #e6f3f2; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+
+    /* Visible outline when using the keyboard */
+    button:focus-visible, textarea:focus-visible,
+    select:focus-visible, input:focus-visible {
+      outline: 3px solid var(--highlight);
+      outline-offset: 2px;
+    }
+
+    /* ---------- Hidden sections (shown by the script) ---------- */
+    .hidden { display: none; }
+
+    .note {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin: 8px 0 0;
+    }
+
+    /* The generated content box */
+    #resultText {
+      min-height: 160px;
+      white-space: pre-wrap;
+    }
+
+    /* ---------- Prompt library ---------- */
+    .category-title {
+      margin: 16px 0 6px;
+      font-weight: 700;
+      color: var(--accent-dark);
+    }
+    .category-title:first-of-type { margin-top: 0; }
+    .prompt-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      margin-bottom: 6px;
+      padding: 9px 12px;
+      background: #f7f9fb;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .prompt-item:hover { background: #e6f3f2; border-color: var(--accent); }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="wrap">
+      <h1>ContentCraft AI</h1>
+      <p>Describe what you need. Review the prompt. Get your content.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- ============ LEFT SIDE: the generator ============ -->
+    <section>
+
+      <!-- STEP 1: the user's request -->
+      <div class="panel">
+        <h2>1. What would you like to create?</h2>
+
+        <label for="request">Your request</label>
+        <textarea id="request" placeholder="Example: A cover letter for a junior developer job at a bank"></textarea>
+
+        <div class="row">
+          <div>
+            <label for="category">Category</label>
+            <select id="category">
+              <option>Career</option>
+              <option>Marketing</option>
+              <option>Education</option>
+              <option>Technical</option>
+            </select>
+          </div>
+          <div>
+            <label for="tone">Tone</label>
+            <select id="tone">
+              <option>Professional</option>
+              <option>Friendly</option>
+              <option>Persuasive</option>
+              <option>Informative</option>
+              <option>Casual</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="optimiseBtn">Optimise my prompt</button>
+        </div>
+        <p id="errorMsg" class="note" role="alert"></p>
+      </div>
+
+      <!-- STEP 2: review and edit the improved prompt (hidden until step 1 is done) -->
+      <div class="panel hidden" id="promptPanel">
+        <h2>2. Review your prompt</h2>
+        <label for="optimisedPrompt">Improved prompt (you can edit it)</label>
+        <textarea id="optimisedPrompt" style="min-height:180px"></textarea>
+        <div class="actions">
+          <button id="generateBtn">Generate content</button>
+          <button id="saveBtn" class="secondary">Save prompt to library</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: the result (hidden until step 2 is done) -->
+      <div class="panel hidden" id="resultPanel">
+        <h2>3. Your content</h2>
+        <div id="resultText" class="panel" style="margin:0"></div>
+        <p class="note">
+          This is placeholder text. In the next stage we connect a real AI model
+          so this box fills with generated content.
+        </p>
+
+        <div class="actions">
+          <button id="refineBtn" class="secondary">Refine</button>
+          <button id="editBtn" class="secondary">Edit</button>
+          <button id="copyBtn" class="secondary">Copy</button>
+        </div>
+
+        <!-- Refine box (hidden until Refine is clicked) -->
+        <div id="refineBox" class="hidden">
+          <label for="refineInput">How should it change?</label>
+          <input type="text" id="refineInput" placeholder="Example: make it shorter and more formal">
+          <div class="actions">
+            <button id="applyRefineBtn">Apply and regenerate</button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============ RIGHT SIDE: the prompt library ============ -->
+    <aside>
+      <div class="panel">
+        <h2>Prompt library</h2>
+        <p class="note" style="margin-top:0">Click a prompt to use it.</p>
+        <div id="library"></div>
+      </div>
+    </aside>
+
+  </main>
+
+  <script>
+    /* ---------- 1. The prompt library data ----------
+       Each category has a list of ready-made prompts.
+       Add your own by copying a line and changing the text. */
+    const library = {
+      Career: [
+        "A cover letter for a junior developer job",
+        "A LinkedIn summary for a recent IT graduate",
+        "A follow-up email after a job interview"
+      ],
+      Marketing: [
+        "An Instagram caption for a new coffee shop opening",
+        "A product description for wireless earphones",
+        "A short email announcing a 20% discount"
+      ],
+      Education: [
+        "A study plan for learning Python in 4 weeks",
+        "A simple explanation of how the internet works",
+        "A quiz with 5 questions about databases"
+      ],
+      Technical: [
+        "A README for a small web project",
+        "An explanation of what an API is for beginners",
+        "Documentation for a login feature"
+      ]
+    };
+
+    /* ---------- 2. Grab the parts of the page we need ---------- */
+    const requestBox     = document.getElementById("request");
+    const categoryBox    = document.getElementById("category");
+    const toneBox        = document.getElementById("tone");
+    const errorMsg       = document.getElementById("errorMsg");
+    const promptPanel    = document.getElementById("promptPanel");
+    const promptBox      = document.getElementById("optimisedPrompt");
+    const resultPanel    = document.getElementById("resultPanel");
+    const resultText     = document.getElementById("resultText");
+    const refineBox      = document.getElementById("refineBox");
+    const refineInput    = document.getElementById("refineInput");
+    const libraryDiv     = document.getElementById("library");
+
+    /* ---------- 3. Build the prompt library on screen ---------- */
+    function showLibrary() {
+      libraryDiv.innerHTML = "";
+      for (const category in library) {
+        const title = document.createElement("div");
+        title.className = "category-title";
+        title.textContent = category;
+        libraryDiv.appendChild(title);
+
+        library[category].forEach(function (text) {
+          const btn = document.createElement("button");
+          btn.className = "prompt-item";
+          btn.textContent = text;
+          // When clicked: put the text in the request box and pick the category
+          btn.addEventListener("click", function () {
+            requestBox.value = text;
+            categoryBox.value = category;
+            requestBox.focus();
+          });
+          libraryDiv.appendChild(btn);
+        });
+      }
+    }
+
+    /* ---------- 4. Step 1 -> Step 2: optimise the prompt ----------
+       For now this uses a fixed template. Later, we can ask an AI model
+       to write a better version. */
+    document.getElementById("optimiseBtn").addEventListener("click", function () {
+      const request = requestBox.value.trim();
+
+      if (request === "") {
+        errorMsg.textContent = "Type what you want to create first.";
+        return;
+      }
+      errorMsg.textContent = "";
+
+      promptBox.value =
+        "Role: You are an expert " + categoryBox.value.toLowerCase() + " writer.\n" +
+        "Task: " + request + "\n" +
+        "Tone: " + toneBox.value + "\n" +
+        "Format: Clear structure, easy to read.\n" +
+        "Rules: Be specific, avoid filler, and do not invent facts.";
+
+      promptPanel.classList.remove("hidden");
+      promptPanel.scrollIntoView({ behavior: "smooth" });
+    });
+
+    /* ---------- 5. Step 2 -> Step 3: generate content ----------
+       This is a placeholder. It shows the prompt that WOULD be sent. */
+    function generate() {
+      resultText.textContent =
+        "[Placeholder result]\n\n" +
+        "The AI would receive this prompt:\n\n" +
+        promptBox.value;
+      resultText.contentEditable = "false";
+      resultPanel.classList.remove("hidden");
+      resultPanel.scrollIntoView({ behavior: "smooth" });
+    }
+    document.getElementById("generateBtn").addEventListener("click", generate);
+
+    /* ---------- 6. Save the current request to the library ---------- */
+    document.getElementById("saveBtn").addEventListener("click", function () {
+      const text = requestBox.value.trim();
+      if (text === "") return;
+      library[categoryBox.value].push(text);
+      showLibrary();
+    });
+
+    /* ---------- 7. Refine, Edit and Copy ---------- */
+    document.getElementById("refineBtn").addEventListener("click", function () {
+      refineBox.classList.toggle("hidden");
+      refineInput.focus();
+    });
+
+    document.getElementById("applyRefineBtn").addEventListener("click", function () {
+      const change = refineInput.value.trim();
+      if (change === "") return;
+      // Add the change to the prompt, then generate again
+      promptBox.value += "\nRefinement: " + change;
+      refineInput.value = "";
+      refineBox.classList.add("hidden");
+      generate();
+    });
+
+    document.getElementById("editBtn").addEventListener("click", function () {
+      // Makes the result box editable so the user can review and change it
+      resultText.contentEditable = "true";
+      resultText.focus();
+    });
+
+    document.getElementById("copyBtn").addEventListener("click", function () {
+      navigator.clipboard.writeText(resultText.textContent);
+    });
+
+    /* ---------- 8. Start the app ---------- */
+    showLibrary();
+  </script>
+
+</body>
+</html>
